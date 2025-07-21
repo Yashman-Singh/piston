@@ -1,1 +1,31 @@
-export PATH=$PWD/bin:$PATH
+PREFIX="$(realpath "$(dirname "$0")")"
+
+export PATH="$PREFIX/bin:$PATH"
+
+export JAVA_HOME="$PREFIX/java"
+export PATH="$JAVA_HOME/bin:$PATH"
+export _JAVA_OPTIONS="-Xss512k"
+
+export SPARK_HOME=$PREFIX/spark
+export PATH="$SPARK_HOME/bin:$PATH"
+
+export HADOOP_HOME="$PREFIX/hadoop"
+export LD_LIBRARY_PATH="$HADOOP_HOME/lib/native:${LD_LIBRARY_PATH:-}"
+
+export PYSPARK_PYTHON=python3.11
+export PYSPARK_DRIVER_PYTHON=python3.11
+export PYTHONPATH="$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j*.zip:${PYTHONPATH:-}"
+
+export HOME=/tmp/home
+export USER=spark_user
+export SPARK_USER=$USER
+export SPARK_LOCAL_DIRS=/tmp/spark
+export SPARK_LOG_DIR=/tmp/spark-logs
+
+export SPARK_LOCAL_IP=127.0.0.1
+export SPARK_MASTER=local[*]
+export SPARK_CONF_DIR=$SPARK_HOME/conf
+export IVY_HOME=/tmp/home/.ivy2
+
+
+

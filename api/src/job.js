@@ -146,23 +146,50 @@ class Job {
         let cpu_time_stat = null;
         let wall_time_stat = null;
 
-        const proc = cp.spawn(
-            ISOLATE_PATH,
-            [
-                '--run',
-                `-b${box.id}`,
-                `--meta=${box.metadata_file_path}`,
-                '--cg',
-                '-s',
-                '-c',
-                '/box/submission',
-                '-E',
-                'HOME=/tmp',
-                ...this.runtime.env_vars.flat_map(v => ['-E', v]),
-                '-E',
-                `PISTON_LANGUAGE=${this.runtime.language}`,
-                `--dir=${this.runtime.pkgdir}`,
-                `--dir=/etc:noexec`,
+        // Detecting if this is a Spark job
+        const isSparkJob = this.runtime.language === 'python' && 
+                           (this.files.some(f => f.content.includes('pyspark')) ||
+                            this.files.some(f => f.content.includes('SparkSession')) ||
+                            this.files.some(f => f.content.includes('from pyspark')));
+
+        // Isolate arguments
+        const isolateArgs = [
+            '--run',
+            `-b${box.id}`,
+            `--meta=${box.metadata_file_path}`,
+            '--cg',
+            '-s',
+            '-c',
+            '/box/submission',
+            '-E',
+            'HOME=/tmp',
+            ...this.runtime.env_vars.flat_map(v => ['-E', v]),
+            '-E',
+            `PISTON_LANGUAGE=${this.runtime.language}`,
+            `--dir=${this.runtime.pkgdir}`,
+            `--dir=/etc:noexec`,
+        ];
+
+        // Different limits for Spark jobs
+        if (isSparkJob) {
+            this.logger.info('Detected Spark job, using relaxed Isolate limits');
+            isolateArgs.push(
+                '--processes=256',           // Much higher process limit
+                '--open-files=8192',         // Much higher file limit
+                '--fsize=100000',            // 100MB file size limit
+                `--wall-time=${timeout / 1000}`,  // Use actual timeout in seconds
+                `--time=${cpu_time / 1000}`,      // Use actual CPU time in seconds
+                '--extra-time=10',           // Extra time for cleanup
+                '--cg-mem=4096',             // 4GB memory limit
+                '--share-net',               // Allow networking
+                '--dir=/tmp',                // Access to /tmp
+                '--dir=/dev/shm',            // Shared memory access
+                '--dir=/proc',               // Access to /proc
+                '--dir=/sys',                // Access to /sys
+            );
+        } else {
+            // Normal Piston limits for non-Spark jobs
+            isolateArgs.push(
                 `--processes=${this.runtime.max_process_count}`,
                 `--open-files=${this.runtime.max_open_files}`,
                 `--fsize=${Math.floor(this.runtime.max_file_size / 1000)}`,
@@ -173,11 +200,14 @@ class Job {
                     ? [`--cg-mem=${Math.floor(memory_limit / 1000)}`]
                     : []),
                 ...(config.disable_networking ? [] : ['--share-net']),
-                '--',
-                '/bin/bash',
-                path.join(this.runtime.pkgdir, file),
-                ...args,
-            ],
+            );
+        }
+
+        isolateArgs.push('--', '/bin/bash', path.join(this.runtime.pkgdir, file), ...args);
+
+        const proc = cp.spawn(
+            ISOLATE_PATH,
+            isolateArgs,
             {
                 stdio: 'pipe',
             }

@@ -8,9 +8,9 @@ PISTON_ENV=$(cat .piston_env 2> /dev/null || echo dev)
 
 docker_compose(){
     if [ -f "docker-compose.$PISTON_ENV.yaml" ]; then
-        docker-compose -f "docker-compose.$PISTON_ENV.yaml" "$@"
+        docker compose -f "docker-compose.$PISTON_ENV.yaml" "$@"
     else
-        docker-compose "$@"
+        docker compose "$@"
     fi
 }
 
@@ -85,7 +85,7 @@ case $1 in
         BUILDER="${4:-piston-repo-builder}"
         echo "Building $PKGSLUG"
         echo "Ensuring latest builder image"
-        docker build repo -t "$BUILDER"
+        docker build --platform=linux/amd64 repo -t "$BUILDER"
         docker run --rm -v "$PWD:/piston" "$BUILDER" --no-server "$PKGSLUG"
         ;;
 
