@@ -1,9 +1,8 @@
-version: '3.2'
-
 services:
     api:
         build: api
         container_name: piston_api
+        platform: linux/amd64
         privileged: true
         restart: always
         ports:
@@ -12,10 +11,20 @@ services:
             - ./data/piston/packages:/piston/packages
         environment:
             - PISTON_REPO_URL=http://repo:8000/index
+            - PISTON_COMPILE_TIMEOUT=15000
+            - PISTON_RUN_TIMEOUT=15000
+            - PISTON_RUN_CPU_TIME=15000
+            - PISTON_COMPILE_MEMORY_LIMIT=1073741824
+            - PISTON_RUN_MEMORY_LIMIT=2147483648
+            - PISTON_DISABLE_NETWORKING=false
+            - COMPOSE_BAKE=true
+            - _JAVA_OPTIONS=-Xmx256m -Xms128m
+            - SPARK_LOCAL_DIRS=/tmp
 
-    repo: # Local testing of packages
-        build: repo
+    repo:
+        image: piston-repo-builder
         container_name: piston_repo
-        command: ['--no-build'] # Don't build anything
+        platform: linux/amd64
+        command: ['--no-build']
         volumes:
             - .:/piston
